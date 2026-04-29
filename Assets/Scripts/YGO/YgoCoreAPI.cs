@@ -18,6 +18,23 @@ namespace YGO
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    public struct OCG_CardData
+    {
+        public uint code;
+        public uint alias;
+        public IntPtr setcodes;
+        public uint type;
+        public uint level;
+        public uint attribute;
+        public ulong race;
+        public int attack;
+        public int defense;
+        public uint lscale;
+        public uint rscale;
+        public uint link_marker;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     public struct OCG_DuelOptions
     {
         public ulong seed0;
@@ -62,5 +79,8 @@ namespace YGO
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr OCG_DuelGetMessage(IntPtr ocg_duel, out uint length);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int OCG_LoadScript(IntPtr ocg_duel, byte[] buffer, uint length, [MarshalAs(UnmanagedType.LPStr)] string name);
     }
 }

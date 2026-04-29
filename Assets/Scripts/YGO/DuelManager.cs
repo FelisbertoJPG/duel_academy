@@ -7,9 +7,13 @@ public class DuelManager : MonoBehaviour
 {
     private IntPtr duelInstance = IntPtr.Zero;
 
-    // Precisamos manter a referência viva para o Garbage Collector não limpar
-    private OCG_DataReader dummyCardReader;
-    private OCG_ScriptReader dummyScriptReader;
+    // Instâncias das nossas classes reais
+    private DatabaseManager dbManager;
+    private ScriptManager scriptManager;
+
+    // Delegates (precisam ficar vivos para o GC não coletar)
+    private OCG_DataReader realCardReader;
+    private OCG_ScriptReader realScriptReader;
 
     void Start()
     {
@@ -17,9 +21,12 @@ public class DuelManager : MonoBehaviour
 
         try
         {
-            // Instanciar os callbacks
-            dummyCardReader = (payload, code, data) => { Debug.Log($"DLL pediu a carta: {code}"); };
-            dummyScriptReader = (payload, duel, name) => { Debug.Log($"DLL pediu o script: {name}"); return 0; };
+            dbManager = new DatabaseManager();
+            scriptManager = new ScriptManager();
+
+            // Instanciar os callbacks reais
+            realCardReader = dbManager.CardReaderCallback;
+            realScriptReader = scriptManager.ScriptReaderCallback;
 
             // O novo padrão exige definir as opções do duelo num struct antes de criar
             OCG_DuelOptions options = new OCG_DuelOptions
@@ -28,8 +35,8 @@ public class DuelManager : MonoBehaviour
                 flags = 0,
                 team1 = new OCG_Player { startingLP = 8000, startingDrawCount = 5, drawCountPerTurn = 1 },
                 team2 = new OCG_Player { startingLP = 8000, startingDrawCount = 5, drawCountPerTurn = 1 },
-                cardReader = Marshal.GetFunctionPointerForDelegate(dummyCardReader),
-                scriptReader = Marshal.GetFunctionPointerForDelegate(dummyScriptReader),
+                cardReader = Marshal.GetFunctionPointerForDelegate(realCardReader),
+                scriptReader = Marshal.GetFunctionPointerForDelegate(realScriptReader),
                 logHandler = IntPtr.Zero,
                 cardReaderDone = IntPtr.Zero,
                 enableUnsafeLibraries = 0
@@ -58,6 +65,31 @@ public class DuelManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"Erro genérico ao tentar falar com o core: {e.Message}");
+        }
+    }
+
+    void Update()
+    {
+        // Se o duelo não foi instanciado ainda, não faz nada
+        if (duelInstance == IntPtr.Zero)
+            return;
+
+        // Avisa a DLL para processar um "passo" da lógica do jogo
+        int processStatus = YgoCoreAPI.OCG_DuelProcess(duelInstance);
+
+        // Busca a mensagem de estado que a DLL gerou neste frame
+        uint length = 0;
+        IntPtr msgPtr = YgoCoreAPI.OCG_DuelGetMessage(duelInstance, out length);
+        
+        // Se existe uma mensagem (comprimento > 0)
+        if (msgPtr != IntPtr.Zero && length > 0)
+        {
+            // Puxa os dados da memória nativa do C++ para o array C#
+            byte[] messageData = new byte[length];
+            Marshal.Copy(msgPtr, messageData, 0, (int)length);
+
+            // Manda para o tradutor!
+            MessageParser.Parse(messageData);
         }
     }
 
