@@ -49,9 +49,44 @@ public class DuelManager : MonoBehaviour
             {
                 Debug.Log($"<color=green>Sucesso ABSOLUTO!</color> Duelo criado no ponteiro: {duelInstance}");
                 
+                // --- INJEÇÃO DOS BARALHOS (FASE 3) ---
+                // Injetar 40 cartas no Deck (loc=1) do Jogador 0
+                for (int i = 0; i < 40; i++)
+                {
+                    OCG_NewCardInfo cardInfo = new OCG_NewCardInfo
+                    {
+                        team = 0,
+                        duelist = 0,
+                        code = 89631139, // Blue-Eyes White Dragon
+                        con = 0,
+                        loc = 1, // LOCATION_DECK
+                        seq = 0,
+                        pos = 8  // POS_FACEDOWN_DEFENSE
+                    };
+                    YgoCoreAPI.OCG_DuelNewCard(duelInstance, ref cardInfo);
+                }
+
+                // Injetar 40 cartas no Deck do Jogador 1
+                for (int i = 0; i < 40; i++)
+                {
+                    OCG_NewCardInfo cardInfo = new OCG_NewCardInfo
+                    {
+                        team = 1,
+                        duelist = 1,
+                        code = 89631139, // Blue-Eyes White Dragon
+                        con = 1,
+                        loc = 1, // LOCATION_DECK
+                        seq = 0,
+                        pos = 8  // POS_FACEDOWN_DEFENSE
+                    };
+                    YgoCoreAPI.OCG_DuelNewCard(duelInstance, ref cardInfo);
+                }
+                Debug.Log("Baralhos de Teste injetados com sucesso (40 Dragões Brancos por Jogador)!");
+                // -------------------------------------
+
                 // 2. Iniciar o duelo
                 YgoCoreAPI.OCG_StartDuel(duelInstance);
-                Debug.Log("Duelo Iniciado com a nova API.");
+                Debug.Log("Duelo Iniciado com a nova API. A máquina de estados vai começar!");
             }
             else
             {

@@ -55,6 +55,18 @@ namespace YGO
         public byte enableUnsafeLibraries;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct OCG_NewCardInfo
+    {
+        public byte team;      // 0 ou 1
+        public byte duelist;   // 0 ou 1
+        public uint code;      // ID da carta
+        public byte con;       // Controlador (0 ou 1)
+        public uint loc;       // Localização (1 = Deck)
+        public uint seq;       // Sequência
+        public uint pos;       // Posição (8 = Facedown Defense)
+    }
+
     /// <summary>
     /// Wrapper para a nova DLL em C++ do ygopro-core (edo9300 API).
     /// </summary>
@@ -70,6 +82,9 @@ namespace YGO
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void OCG_DestroyDuel(IntPtr ocg_duel);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void OCG_DuelNewCard(IntPtr ocg_duel, ref OCG_NewCardInfo info);
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void OCG_StartDuel(IntPtr ocg_duel);
