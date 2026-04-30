@@ -15,6 +15,9 @@ namespace YGO
         public const byte MSG_NEW_PHASE = 41;    // 0x29
         public const byte MSG_DRAW = 90;         // 0x5A
         
+        // Eventos visuais para a Unity assinar!
+        public static event Action<int, uint[]> OnCardsDrawn;
+
         public static void Parse(byte[] messageData)
         {
             if (messageData == null || messageData.Length == 0)
@@ -49,8 +52,33 @@ namespace YGO
                         break;
                         
                     case MSG_DRAW:
-                        // O payload tem mais dados, mas vamos só avisar por cima
-                        Debug.Log($"<color=lightblue>[MSG_DRAW]</color> Ocorreu um saque de cartas (Draw)!");
+                        byte p = messageData[offset + 1];
+                        byte count = (byte)BitConverter.ToUInt32(messageData, offset + 2);
+                        string drawnCards = "";
+                        
+                        // O cabeçalho ocupa 6 bytes (1 do tipo + 1 do player + 4 do count)
+                        int readOffset = offset + 6;
+                        uint[] drawnIds = new uint[count];
+
+                        bioafor (int i = 0; i < count; i++)
+                        {
+                            // A nova API usa 8 bytes por carta (4 para ID e 4 para status/posição)
+                            uint cardId = BitConverter.ToUInt32(messageData, readOffset);
+                            
+                            bool isHidden = (cardId & 0x80000000) != 0;
+                            uint realId = cardId & 0x7FFFFFFF;
+                            
+                            drawnIds[i] = realId;
+
+                            if (isHidden) drawnCards += "[Oculta] ";
+                            else drawnCards += $"[{realId}] ";
+                            
+                            readOffset += 8; // Pula os 8 bytes desta carta
+                        }
+                        Debug.Log($"<color=lightblue>[MSG_DRAW]</color> Jogador {p} sacou {count} cartas: {drawnCards}");
+                        
+                        // Dispara o evento visual!
+                        OnCardsDrawn?.Invoke(p, drawnIds);
                         break;
 
                     case MSG_SELECT_IDLECMD:

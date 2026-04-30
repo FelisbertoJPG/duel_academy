@@ -49,7 +49,15 @@ public class DuelManager : MonoBehaviour
             {
                 Debug.Log($"<color=green>Sucesso ABSOLUTO!</color> Duelo criado no ponteiro: {duelInstance}");
                 
-                // --- INJEÇÃO DOS BARALHOS (FASE 3) ---
+                // --- INJEÇÃO DOS BARALHOS (FASE 3 / PASSO 4.1) ---
+                // Vamos usar um deck misto para ver IDs variados no saque!
+                uint[] mixedDeck = new uint[] { 
+                    89631139, // Dragão Branco
+                    46986414, // Mago Negro
+                    83764718, // Monstro Renascido (Monster Reborn)
+                    70903634  // Força Espelho (Mirror Force)
+                };
+
                 // Injetar 40 cartas no Deck (loc=1) do Jogador 0
                 for (int i = 0; i < 40; i++)
                 {
@@ -57,7 +65,7 @@ public class DuelManager : MonoBehaviour
                     {
                         team = 0,
                         duelist = 0,
-                        code = 89631139, // Blue-Eyes White Dragon
+                        code = mixedDeck[i % mixedDeck.Length], 
                         con = 0,
                         loc = 1, // LOCATION_DECK
                         seq = 0,
@@ -73,7 +81,7 @@ public class DuelManager : MonoBehaviour
                     {
                         team = 1,
                         duelist = 1,
-                        code = 89631139, // Blue-Eyes White Dragon
+                        code = mixedDeck[i % mixedDeck.Length],
                         con = 1,
                         loc = 1, // LOCATION_DECK
                         seq = 0,
@@ -81,7 +89,7 @@ public class DuelManager : MonoBehaviour
                     };
                     YgoCoreAPI.OCG_DuelNewCard(duelInstance, ref cardInfo);
                 }
-                Debug.Log("Baralhos de Teste injetados com sucesso (40 Dragões Brancos por Jogador)!");
+                Debug.Log("Baralhos Mistos de Teste injetados com sucesso!");
                 // -------------------------------------
 
                 // 2. Iniciar o duelo
