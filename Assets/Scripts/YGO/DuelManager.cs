@@ -5,6 +5,8 @@ using YGO;
 
 public class DuelManager : MonoBehaviour
 {
+    public static DuelManager Instance { get; private set; }
+    
     private IntPtr duelInstance = IntPtr.Zero;
 
     // Instâncias das nossas classes reais
@@ -17,6 +19,7 @@ public class DuelManager : MonoBehaviour
 
     void Start()
     {
+        Instance = this;
         Debug.Log("Inicializando ygopro-core (edo9300)...");
 
         try
@@ -80,7 +83,7 @@ public class DuelManager : MonoBehaviour
                     OCG_NewCardInfo cardInfo = new OCG_NewCardInfo
                     {
                         team = 1,
-                        duelist = 1,
+                        duelist = 0, // Corrigido: Para 1v1, o duelista do time 1 é o 0
                         code = mixedDeck[i % mixedDeck.Length],
                         con = 1,
                         loc = 1, // LOCATION_DECK
@@ -143,5 +146,74 @@ public class DuelManager : MonoBehaviour
             YgoCoreAPI.OCG_DestroyDuel(duelInstance);
             Debug.Log("Duelo finalizado e memória limpa via API moderna.");
         }
+    }
+
+    // ========================================
+    // RESPOSTAS AO MOTOR
+    // ========================================
+
+    /// <summary>
+    /// Envia uma resposta de Invocação Normal ao motor.
+    /// O formato é: [tipo_ação (int32)] + [índice (int32)]
+    /// Tipo 0 = Normal Summon
+    /// </summary>
+    public void SendNormalSummonResponse(int summonIndex)
+    {
+        if (duelInstance == IntPtr.Zero) return;
+        
+        byte[] response = new byte[8];
+        BitConverter.GetBytes(0).CopyTo(response, 0);  // Tipo 0 = Normal Summon
+        BitConverter.GetBytes(summonIndex).CopyTo(response, 4);
+        
+        YgoCoreAPI.OCG_DuelSetResponse(duelInstance, response, (uint)response.Length);
+        Debug.Log($"<color=lime>[Resposta]</color> Enviada Invocação Normal (índice {summonIndex})");
+    }
+
+    /// <summary>
+    /// Envia uma resposta de Setar carta ao motor.
+    /// Tipo 4 = Set Monster
+    /// </summary>
+    public void SendSetResponse(int setIndex)
+    {
+        if (duelInstance == IntPtr.Zero) return;
+        
+        byte[] response = new byte[8];
+        BitConverter.GetBytes(3).CopyTo(response, 0);  // Tipo 3 = Set
+        BitConverter.GetBytes(setIndex).CopyTo(response, 4);
+        
+        YgoCoreAPI.OCG_DuelSetResponse(duelInstance, response, (uint)response.Length);
+        Debug.Log($"<color=lime>[Resposta]</color> Enviada ação Set (índice {setIndex})");
+    }
+
+    /// <summary>
+    /// Envia uma resposta para entrar na Battle Phase ao motor.
+    /// Tipo 5 = Battle Phase
+    /// </summary>
+    public void SendBattlePhaseResponse()
+    {
+        if (duelInstance == IntPtr.Zero) return;
+        
+        byte[] response = new byte[8];
+        BitConverter.GetBytes(5).CopyTo(response, 0);  // Tipo 5 = To Battle Phase
+        BitConverter.GetBytes(0).CopyTo(response, 4);
+        
+        YgoCoreAPI.OCG_DuelSetResponse(duelInstance, response, (uint)response.Length);
+        Debug.Log("<color=orange>[Resposta]</color> Entrando na Battle Phase!");
+    }
+
+    /// <summary>
+    /// Envia uma resposta de Fim de Turno ao motor.
+    /// Tipo 6 = End Phase
+    /// </summary>
+    public void SendEndTurnResponse()
+    {
+        if (duelInstance == IntPtr.Zero) return;
+        
+        byte[] response = new byte[8];
+        BitConverter.GetBytes(6).CopyTo(response, 0);  // Tipo 6 = End Turn
+        BitConverter.GetBytes(0).CopyTo(response, 4);
+        
+        YgoCoreAPI.OCG_DuelSetResponse(duelInstance, response, (uint)response.Length);
+        Debug.Log($"<color=lime>[Resposta]</color> Enviado Fim de Turno");
     }
 }

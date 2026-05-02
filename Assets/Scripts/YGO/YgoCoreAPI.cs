@@ -97,5 +97,11 @@ namespace YGO
 
         [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int OCG_LoadScript(IntPtr ocg_duel, byte[] buffer, uint length, [MarshalAs(UnmanagedType.LPStr)] string name);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void OCG_DuelSetResponse(IntPtr ocg_duel, byte[] buffer, uint length);
+
+        [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int OCG_DuelQueryCount(IntPtr ocg_duel, byte team, uint loc);
     }
 }

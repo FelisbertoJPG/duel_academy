@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
+using UnityEngine.UI;
 
 namespace YGO
 {
@@ -23,7 +24,9 @@ namespace YGO
         private IEnumerator LoadCardImageRoutine(uint id)
         {
             // Puxamos direto da API oficial do YGOPRODeck
-            string url = $"https://images.ygoprodeck.com/images/cards/{id}.jpg";
+            string url = (id == 0) 
+                ? "https://images.ygoprodeck.com/images/cards/back_high.jpg" 
+                : $"https://images.ygoprodeck.com/images/cards/{id}.jpg";
             
             using (UnityWebRequest uwr = UnityWebRequestTexture.GetTexture(url))
             {
@@ -34,22 +37,23 @@ namespace YGO
                     // Pega a textura baixada
                     Texture2D tex = DownloadHandlerTexture.GetContent(uwr);
                     
-                    // Aplica no Material do Quad
+                    // Aplica no Material do Quad (3D) ou na Image da HUD (2D)
                     MeshRenderer renderer = GetComponent<MeshRenderer>();
-                    UnityEngine.UI.Image uiImage = GetComponent<UnityEngine.UI.Image>();
+                    
+                    // BUSCA INTELIGENTE: Procura a Image no filho "Visual" primeiro, depois no próprio objeto
+                    Transform visualT = transform.Find("Visual");
+                    Image uiImage = (visualT != null) ? visualT.GetComponent<Image>() : GetComponent<Image>();
 
                     if (renderer != null)
                     {
                         // O "Universal Render Pipeline/Unlit" é o shader oficial da URP que não recebe sombras.
-                        // Assim as cartas ficam com brilho 100% igual ao anime/jogo original!
                         Shader unlitUrp = Shader.Find("Universal Render Pipeline/Unlit");
                         Material mat;
                         
                         if (unlitUrp != null) {
                             mat = new Material(unlitUrp);
-                            mat.SetTexture("_BaseMap", tex); // No URP, a textura principal chama _BaseMap
+                            mat.SetTexture("_BaseMap", tex);
                         } else {
-                            // Failsafe caso o nome do shader falhe
                             mat = new Material(renderer.material);
                             mat.mainTexture = tex;
                         }
@@ -60,6 +64,8 @@ namespace YGO
                     {
                         // Se for uma carta da HUD (Canvas), cria um Sprite a partir da Textura 2D e aplica
                         uiImage.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        // Garante que a cor seja branca para mostrar a imagem corretamente
+                        uiImage.color = Color.white;
                     }
                 }
                 else

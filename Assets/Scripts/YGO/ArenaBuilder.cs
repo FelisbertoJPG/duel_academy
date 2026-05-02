@@ -3,117 +3,129 @@ using UnityEngine;
 namespace YGO
 {
     /// <summary>
-    /// Gera os pontos 3D da Arena de Duelo baseados nas regras oficiais (Master Rule).
+    /// Gera o tabuleiro 3D do duelo (Master Rule 5).
+    /// Layout simétrico: centro do campo em Z=0, Player 0 abaixo, Player 1 acima.
     /// </summary>
     public class ArenaBuilder : MonoBehaviour
     {
-        [Header("Configurações de Espaçamento")]
-        public float cardSpacingX = 1.5f;
-        public float rowSpacingZ = 1.8f;
+        [Header("Configurações do Campo")]
+        public float cardSpacingX = 1.1f;   // Distância horizontal entre slots
+        public float rowSpacingZ  = 1.3f;   // Distância vertical entre fileiras
+        public Vector3 slotScale  = new Vector3(0.85f, 1.2f, 1f); // Proporção carta YGO (~59x86mm)
+
+        // Cores semitransparentes para identificar as zonas
+        private Color monsterColor   = new Color(0.9f, 0.55f, 0.2f, 0.30f); // Laranja
+        private Color spellTrapColor = new Color(0.2f, 0.7f, 0.7f, 0.25f);  // Ciano
+        private Color extraMZColor   = new Color(0.3f, 0.5f, 1.0f, 0.30f);  // Azul
+        private Color deckColor      = new Color(0.4f, 0.25f, 0.1f, 0.30f); // Marrom
+        private Color gyColor        = new Color(0.5f, 0.5f, 0.5f, 0.25f);  // Cinza
+        private Color extraDeckColor = new Color(0.6f, 0.2f, 0.7f, 0.25f);  // Roxo
+        private Color fieldColor     = new Color(0.2f, 0.8f, 0.3f, 0.20f);  // Verde
 
         [ContextMenu("Construir Arena 3D")]
         public void BuildArena()
         {
-            // Limpa as zonas antigas se estiver regerando
+            // Limpa tudo
             for (int i = transform.childCount - 1; i >= 0; i--)
-            {
                 DestroyImmediate(transform.GetChild(i).gameObject);
-            }
 
-            // Jogador 0 (Base do Tabuleiro / Parte inferior)
-            BuildPlayerZones(0, false);
+            // ============================================================
+            //  Cálculo baseado no tamanho real do slot para ZERO sobreposição.
+            //  slotScale.y = altura do slot no eixo Z (porque o Quad é rotacionado 90°)
+            //
+            //  Layout (de baixo pra cima):
+            //    P0 Spell → P0 Monster → [gap] → Extra MZ → [gap] → P1 Monster → P1 Spell
+            // ============================================================
 
-            // Jogador 1 (Topo do Tabuleiro / Oponente)
-            BuildPlayerZones(1, true);
+            float h = slotScale.y;          // Altura de cada slot no campo
+            float tightGap = 0.06f;         // Espaço entre Monster e Spell (mesmo lado)
+            float centerGap = 0.2f;         // Espaço entre Monster e Extra Monster Zone
+            float fieldShift = 0.8f;        // Desloca tudo pra cima pra P0 Spell não ficar sob a mão
 
-            // Extra Monster Zones (Master Rule 4/5 - Ficam no centro)
-            CreateZone("ExtraMonsterZone_0", -cardSpacingX, rowSpacingZ);
-            CreateZone("ExtraMonsterZone_1", cardSpacingX, rowSpacingZ);
+            // Centro do campo
+            float centerZ = fieldShift;
 
-            Debug.Log("<color=green>Arena construída com sucesso!</color> O campo está alinhado.");
+            // Extra Monster Zones (centro)
+            float extraZ = centerZ;
+
+            // P0 Monster: logo abaixo do centro, com folga
+            float p0MonsterZ = centerZ - h * 0.5f - centerGap - h * 0.5f;
+            // P0 Spell: colado logo abaixo do P0 Monster
+            float p0SpellZ = p0MonsterZ - h * 0.5f - tightGap - h * 0.5f;
+
+            // P1 Monster: logo acima do centro, com folga
+            float p1MonsterZ = centerZ + h * 0.5f + centerGap + h * 0.5f;
+            // P1 Spell: colado logo acima do P1 Monster
+            float p1SpellZ = p1MonsterZ + h * 0.5f + tightGap + h * 0.5f;
+
+            // --- PLAYER 0 (VOCÊ) ---
+            GameObject p0Root = CreateRoot("Player_0_Zones");
+            CreateRow("P0_Monster", 5, p0MonsterZ, monsterColor, p0Root.transform);
+            CreateRow("P0_Spell",   5, p0SpellZ,   spellTrapColor, p0Root.transform);
+
+            float sideX = 3.2f * cardSpacingX;
+            CreateZone("P0_Deck",      sideX, p0SpellZ,   deckColor,      p0Root.transform);
+            CreateZone("P0_GY",        sideX, p0MonsterZ, gyColor,        p0Root.transform);
+            CreateZone("P0_ExtraDeck",-sideX, p0SpellZ,   extraDeckColor, p0Root.transform);
+            CreateZone("P0_Field",    -sideX, p0MonsterZ, fieldColor,     p0Root.transform);
+
+            // --- EXTRA MONSTER ZONES ---
+            CreateZone("ExtraMonster_Left",  -cardSpacingX, extraZ, extraMZColor);
+            CreateZone("ExtraMonster_Right",  cardSpacingX, extraZ, extraMZColor);
+
+            // --- PLAYER 1 (OPONENTE) ---
+            GameObject p1Root = CreateRoot("Player_1_Zones");
+            CreateRow("P1_Monster", 5, p1MonsterZ, monsterColor, p1Root.transform);
+            CreateRow("P1_Spell",   5, p1SpellZ,   spellTrapColor, p1Root.transform);
+
+            CreateZone("P1_Deck",     -sideX, p1SpellZ,   deckColor,      p1Root.transform);
+            CreateZone("P1_GY",       -sideX, p1MonsterZ, gyColor,        p1Root.transform);
+            CreateZone("P1_ExtraDeck", sideX, p1SpellZ,   extraDeckColor, p1Root.transform);
+            CreateZone("P1_Field",     sideX, p1MonsterZ, fieldColor,     p1Root.transform);
+
+            Debug.Log("<color=green>Arena construída!</color> Layout sem sobreposições.");
         }
 
-        private void BuildPlayerZones(int playerIndex, bool isOpponent)
+        // ========================================
+        //  Helpers
+        // ========================================
+
+        private GameObject CreateRoot(string name)
         {
-            // Um objeto vazio para agrupar as zonas deste jogador
-            GameObject playerRoot = new GameObject($"Player_{playerIndex}_Zones");
-            playerRoot.transform.SetParent(this.transform);
-            playerRoot.transform.localPosition = Vector3.zero;
-
-            // Define a inversão do eixo Z e X para o oponente (para que ele fique de frente para nós)
-            float zDir = isOpponent ? 1f : -1f;
-            // Para o oponente, a zona 0 fica na direita, zona 4 na esquerda sob a ótica dele
-            float xDir = isOpponent ? -1f : 1f;
-
-            // A linha "zero" dos monstros do P0 é Z = 0. Do P1 é Z = 2 * rowSpacingZ (aprox 3.6f)
-            float baseZ = isOpponent ? rowSpacingZ * 2 : 0f;
-
-            // Zonas de Monstros Principais (5)
-            for (int i = 0; i < 5; i++)
-            {
-                float x = (i - 2) * cardSpacingX * xDir;
-                CreateZone($"P{playerIndex}_MonsterZone_{i}", x, baseZ, playerRoot.transform);
-            }
-
-            // Zonas de Magias e Armadilhas (5)
-            float stZ = baseZ + (rowSpacingZ * zDir);
-            for (int i = 0; i < 5; i++)
-            {
-                float x = (i - 2) * cardSpacingX * xDir;
-                CreateZone($"P{playerIndex}_SpellTrapZone_{i}", x, stZ, playerRoot.transform);
-            }
-
-            // Zonas Especiais: Field, Graveyard, Deck, Extra, Banished
-            // Campo Fica à esquerda (i=-3)
-            float fieldX = -3 * cardSpacingX * xDir;
-            CreateZone($"P{playerIndex}_FieldZone", fieldX, baseZ, playerRoot.transform);
-            CreateZone($"P{playerIndex}_ExtraDeck", fieldX, stZ, playerRoot.transform);
-
-            // Cemitério e Deck ficam à direita (i=3)
-            float graveX = 3 * cardSpacingX * xDir;
-            CreateZone($"P{playerIndex}_Graveyard", graveX, baseZ, playerRoot.transform);
-            CreateZone($"P{playerIndex}_Deck", graveX, stZ, playerRoot.transform);
-
-            // Zonas de Banidas (um pouco mais para fora ou para trás)
-            CreateZone($"P{playerIndex}_Banished", graveX, stZ + (rowSpacingZ * zDir), playerRoot.transform);
+            GameObject root = new GameObject(name);
+            root.transform.SetParent(this.transform);
+            root.transform.localPosition = Vector3.zero;
+            return root;
         }
 
-        private void CreateZone(string name, float x, float z, Transform parent = null)
+        private void CreateRow(string prefix, int count, float z, Color color, Transform parent)
         {
-            // Em vez de objeto vazio, agora criamos um "Quad" real (Um plano 2D nativo da Unity)
-            GameObject zone = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            zone.name = name;
-            
-            // Destruímos o colisor padrão pois ele pode atrapalhar os cliques depois
-            DestroyImmediate(zone.GetComponent<MeshCollider>());
-
-            zone.transform.SetParent(parent == null ? this.transform : parent);
-            
-            // Colocamos Y = 0.01f para ele ficar uma casquinha de nada acima da sua Mesa (Plane), evitando que a tela pisque
-            zone.transform.localPosition = new Vector3(x, 0.01f, z);
-            
-            // O Quad nasce em pé. Deitamos ele 90 graus no chão!
-            zone.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            
-            // Escala real de uma carta YGO (1 de largura por 1.4 de altura)
-            zone.transform.localScale = new Vector3(1f, 1.4f, 1f);
-
-            // Criando as cores translúcidas estilo Master Duel
-            MeshRenderer renderer = zone.GetComponent<MeshRenderer>();
-            if (renderer != null)
+            float startX = -(count - 1) * cardSpacingX * 0.5f;
+            for (int i = 0; i < count; i++)
             {
-                // O shader "Sprites/Default" funciona perfeitamente para transparência limpa
-                Material mat = new Material(Shader.Find("Sprites/Default"));
-                
-                Color zoneColor = new Color(0.5f, 0.5f, 0.5f, 0.3f); // Cinza/Neutro (Padrão)
-
-                if (name.Contains("Monster")) zoneColor = new Color(0.8f, 0.4f, 0.1f, 0.35f); // Laranja translúcido
-                else if (name.Contains("Spell")) zoneColor = new Color(0.1f, 0.6f, 0.5f, 0.35f); // Azul/Verde translúcido
-                else if (name.Contains("Field")) zoneColor = new Color(0.2f, 0.8f, 0.2f, 0.35f); // Verde claro translúcido
-                
-                mat.color = zoneColor;
-                renderer.sharedMaterial = mat; // sharedMaterial é ideal para rodar dentro do Editor
+                CreateZone($"{prefix}_{i}", startX + i * cardSpacingX, z, color, parent);
             }
+        }
+
+        private void CreateZone(string zoneName, float x, float z, Color color, Transform parent = null)
+        {
+            GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quad.name = zoneName;
+            quad.transform.SetParent(parent != null ? parent : this.transform);
+            quad.transform.localPosition = new Vector3(x, 0.01f, z);
+            quad.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            quad.transform.localScale = slotScale;
+
+            MeshRenderer mr = quad.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                Material mat = new Material(Shader.Find("Unlit/Color"));
+                mat.color = color;
+                mr.sharedMaterial = mat;
+            }
+
+            // Adiciona FieldZone para interação
+            FieldZone fz = quad.AddComponent<FieldZone>();
         }
     }
 }
